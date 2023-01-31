@@ -15,19 +15,12 @@ public class BasicBlock extends Value {
 
   public boolean terminated = false;
 
-  /** for control flow graph */
-  public ArrayList<BasicBlock> prevs = new ArrayList<>(), nexts = new ArrayList<>();
-
-  /** for register allocation and optimize */
-  public int loopDepth;
-
-  public BasicBlock(String name, Function parent, int loopDepth) {
+  public BasicBlock(String name, Function parent) {
     super(new LabelType(), name);
     this.parent = parent;
     if (parent != null) {
       parent.blocks.add(this);
     }
-    this.loopDepth = loopDepth;
   }
 
   public void addInst(BaseInst inst) {

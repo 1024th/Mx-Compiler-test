@@ -18,9 +18,13 @@ public class InstSelector implements ir.IRVisitor {
   asm.Function curFunc;
   asm.Block curBlock;
 
-  private final PhysicalReg sp = PhysicalReg.reg("sp");
-  private final PhysicalReg ra = PhysicalReg.reg("ra");
-  private final PhysicalReg a0 = PhysicalReg.reg("a0");
+  private final PhysicalReg sp = PhysicalReg.regMap.get("sp");
+  private final PhysicalReg ra = PhysicalReg.regMap.get("ra");
+  private final PhysicalReg a0 = PhysicalReg.regMap.get("a0");
+
+  private PhysicalReg RegA(int i) {
+    return PhysicalReg.regMap.get("a" + i);
+  }
 
   private Integer getConstVal(ir.Value v) {
     Integer constVal = null;
@@ -38,7 +42,7 @@ public class InstSelector implements ir.IRVisitor {
     var constVal = getConstVal(val);
     if (constVal != null) {
       if (constVal == 0) {
-        val.asm = PhysicalReg.reg("zero");
+        val.asm = PhysicalReg.regMap.get("zero");
       } else {
         var reg = new VirtualReg(val.type.size());
         new LiInst(reg, new Imm(constVal), curBlock);
@@ -67,14 +71,7 @@ public class InstSelector implements ir.IRVisitor {
       s.asm = new StringConst(s.name.substring(1), s.val);
       module.stringConsts.add((StringConst) s.asm);
     }
-
     // functions
-    // remove '@' in front of the function name
-    for (var i : irModule.funcs)
-      i.asm = new asm.Function(i.name.substring(1));
-    for (var i : irModule.funcDecls)
-      i.asm = new asm.Function(i.name.substring(1));
-
     for (var i : irModule.funcs) {
       i.accept(this);
     }
@@ -82,22 +79,14 @@ public class InstSelector implements ir.IRVisitor {
 
   @Override
   public void visit(ir.Function func) {
-    curFunc = (asm.Function) func.asm;
+    // remove '@' in front of the function name
+    curFunc = new asm.Function(func.name.substring(1));
     module.funcs.add(curFunc);
     VirtualReg.cnt = 0;
 
-    for (var block : func.blocks) {
-      block.asm = new Block(block.name, block.loopDepth);
-      curFunc.blocks.add((Block) block.asm);
-    }
-    curFunc.entryBlock = (Block) func.entryBlock.asm;
-    curFunc.exitBlock = (Block) func.exitBlock.asm;
-
-    // build control flow graph for asm.Block
     for (var i : func.blocks) {
-      var asmBlock = (asm.Block) i.asm;
-      i.prevs.forEach(b -> asmBlock.prevs.add((asm.Block) b.asm));
-      i.nexts.forEach(b -> asmBlock.nexts.add((asm.Block) b.asm));
+      i.asm = new Block(i.name);
+      curFunc.blocks.add((Block) i.asm);
     }
     curBlock = (Block) func.entryBlock.asm;
 
@@ -119,7 +108,7 @@ public class InstSelector implements ir.IRVisitor {
     for (int i = 0; i < func.operands.size(); ++i) {
       var arg = func.operands.get(i);
       if (i < 8) {
-        arg.asm = PhysicalReg.regA(i);
+        arg.asm = RegA(i);
       } else {
         var reg = new VirtualReg(4);
         arg.asm = reg;
@@ -219,7 +208,7 @@ public class InstSelector implements ir.IRVisitor {
     for (int i = 0; i + 1 < inst.operands.size(); ++i) {
       var arg = inst.operands.get(i + 1);
       if (i < 8) {
-        new MvInst(PhysicalReg.regA(i), getReg(arg), curBlock);
+        new MvInst(RegA(i), getReg(arg), curBlock);
       } else {
         curFunc.spilledArg = Math.max(curFunc.spilledArg, i - 8);
         var offset = new StackOffset(i - 8, StackOffsetType.putArg);
@@ -227,7 +216,7 @@ public class InstSelector implements ir.IRVisitor {
       }
     }
 
-    new asm.inst.CallInst((asm.Function) inst.getFunc().asm, curBlock);
+    new asm.inst.CallInst(inst.getFunc().name.substring(1), curBlock);
 
     if (!(inst.type instanceof ir.type.VoidType)) {
       new MvInst(getReg(inst), a0, curBlock);
