@@ -1,7 +1,10 @@
 package asm.inst;
 
+import java.util.HashSet;
+
 import asm.Block;
 import asm.InstVisitor;
+import asm.operand.Reg;
 
 public abstract class BaseInst {
   public BaseInst(Block parent) {
@@ -11,6 +14,14 @@ public abstract class BaseInst {
 
   @Override
   public abstract String toString();
+
+  public abstract HashSet<Reg> uses();
+
+  public abstract HashSet<Reg> defs();
+
+  public abstract void replaceUse(Reg oldReg, Reg newReg);
+
+  public abstract void replaceDef(Reg oldReg, Reg newReg);
 
   public abstract void accept(InstVisitor visitor);
 }
